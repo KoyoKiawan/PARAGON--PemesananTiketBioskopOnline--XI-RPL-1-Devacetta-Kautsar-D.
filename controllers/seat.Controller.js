@@ -1,56 +1,83 @@
-const validator = require('fastest-validator');
-const models = require('../models');
+const db = require('../config/db');
 
-const v = new validator();
-
-// Validation schema for seats
-const seatSchema = {
-    showtime_id: { type: "number", integer: true, optional: false },
-    seat_number: { type: "string", optional: false, max: "5" }
+// Get all seats for a specific movie
+const getSeatsByMovie = async (req, res) => {
+  const movieId = req.params.movieId;
+  try {
+    const [seats] = await db.query(
+      "SELECT * FROM seats WHERE movie_id = ? ORDER BY seat_code",
+      [movieId]
+    );
+    res.json(seats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-// Get available seats for a showtime
-function getSeats(req, res) {
-    const showtime_id = req.params.showtime_id;
+// Book multiple seats at once
+const bookSeats = async (req, res) => {
+  const { user_id, movie_id, seats, price, showtime } = req.body;
+  // seats = ['G7', 'G8']
 
-    models.seats.findAll({ where: { showtime_id } })
-        .then(seats => res.status(200).json(seats))
-        .catch(error => res.status(500).json({ message: "Something went wrong!", error }));
-}
+  try {
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
 
-// Create a seat (Admin Only)
-function createSeat(req, res) {
-    const seat = {
-        showtime_id: req.body.showtime_id,
-        seat_number: req.body.seat_number,
-        is_available: req.body.is_available ?? true
-    };
+    for (let seat of seats) {
+      const [result] = await connection.query(
+        "SELECT * FROM seats WHERE movie_id = ? AND showtime = ? AND seat_code = ? FOR UPDATE",
+        [movie_id, seat]
+      );
 
-    const validation = v.validate(seat, seatSchema);
-    if (validation !== true) {
-        return res.status(400).json({ message: "Validation failed", errors: validation });
+      if (!result.length || result[0].status === 'taken') {
+        await connection.rollback();
+        return res.status(400).json({ message: `Seat ${seat} is already taken.` });
+      }
+
+      // Update seat status
+      await connection.query(
+        "UPDATE seats SET status = 'taken' WHERE movie_id = ? AND showtime = ? AND seat_code = ?",
+        [movie_id, showtime ,seat]
+      );
+
+      // Create ticket
+      const bookingCode = Math.random().toString(36).substring(2, 10).toUpperCase(); // Short booking code
+      await connection.query(
+        `INSERT INTO tickets (user_id, movie_id, seat_number, price, payment_status, booking_code, showtime)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [user_id, movie_id, seat, price, 'unpaid', bookingCode, showtime]
+      );
     }
 
-    models.seats.create(seat)
-        .then(result => res.status(201).json({ message: "Seat created!", seat: result }))
-        .catch(error => res.status(500).json({ message: "Something went wrong!", error }));
-}
+    await connection.commit();
+    connection.release();
 
-function updateSeatAvailability(req, res) {
-    const seatId = req.params.id;
-    const { is_available } = req.body;
+    res.status(201).json({ message: 'Seats booked successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
-    models.seats.update({ is_available }, { where: { id: seatId } })
-        .then(result => {
-            if (result[0] === 0) {
-                return res.status(404).json({ message: "Seat not found!" });
-            }
-            res.status(200).json({ message: "Seat updated successfully!" });
-        })
-        .catch(error => res.status(500).json({ message: "Something went wrong!", error }));
-}
+// Get all seats a user has booked
+const getBookedSeatsByUser = async (req, res) => {
+  const userId = req.params.userId;
+  try {
+    const [tickets] = await db.query(
+      `SELECT t.id, t.movie_id, m.title AS movie_title, t.seat_number, t.showtime, t.payment_status, t.booking_code
+       FROM tickets t
+       JOIN movies m ON t.movie_id = m.id
+       WHERE t.user_id = ?
+       ORDER BY t.showtime DESC`,
+      [userId]
+    );
+    res.json(tickets);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
-    getSeats,
-    createSeat,
-    updateSeatAvailability
+  getSeatsByMovie,
+  bookSeats,
+  getBookedSeatsByUser
 };

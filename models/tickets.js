@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
   }
   tickets.init({
     user_id: DataTypes.INTEGER,
-    showtime_id: DataTypes.INTEGER,
+    movies_id: DataTypes.INTEGER,
     seat_id: DataTypes.INTEGER,
     price: DataTypes.DECIMAL(10, 2),
     payment_status: DataTypes.ENUM('pending', 'paid', 'cancelled'),
@@ -26,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
   });
   tickets.associate = function(models) {
     tickets.belongsTo(models.seats, { foreignKey: 'seat_id' });
-    tickets.belongsTo(models.showtimes, { foreignKey: 'showtime_id' });
+    tickets.belongsTo(models.movies, { foreignKey: 'movies_id' });
 };
 
   return tickets;

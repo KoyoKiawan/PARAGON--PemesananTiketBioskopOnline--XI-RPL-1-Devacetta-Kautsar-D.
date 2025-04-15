@@ -1,4 +1,5 @@
 'use strict';
+
 const {
   Model
 } = require('sequelize');
@@ -15,10 +16,7 @@ module.exports = (sequelize, DataTypes) => {
   }
   movies.init({
     title: DataTypes.STRING,
-    description: DataTypes.TEXT,
     poster_url: DataTypes.STRING,
-    release_date: DataTypes.DATE,
-    duration: DataTypes.INTEGER
   }, {
     sequelize,
     modelName: 'movies',

@@ -20,16 +20,14 @@ module.exports = (sequelize, DataTypes) => {
         model: 'movies',
         key: 'id'
       }
-    },
-    date: DataTypes.DATE,
-    time: DataTypes.TIME
+    }
   }, {
     sequelize,
     modelName: 'showtimes',
   });
   showtimes.associate = function(models) {
-    showtimes.hasMany(models.seats, { foreignKey: 'showtime_id' });
-    showtimes.hasMany(models.tickets, { foreignKey: 'showtime_id' });
+    showtimes.hasMany(models.seats, { foreignKey: 'movie_id' });
+    showtimes.hasMany(models.tickets, { foreignKey: 'movie_id' });
 };
 
   return showtimes;

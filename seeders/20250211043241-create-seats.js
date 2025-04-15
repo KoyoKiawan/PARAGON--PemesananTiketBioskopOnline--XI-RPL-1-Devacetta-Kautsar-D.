@@ -5,14 +5,14 @@ module.exports = {
     let seats = [];
     const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     const totalSeats = 10;
-    const showtimeId = 1; // Change this dynamically if needed
+    const showtimeId = 1;
 
     rows.forEach(row => {
       for (let i = 1; i <= totalSeats; i++) {
         seats.push({
           seat_number: `${row}${i}`,
           showtime_id: showtimeId,
-          is_available: false, // Default: all seats available
+          is_available: false, 
           createdAt: new Date(),
           updatedAt: new Date()
         });

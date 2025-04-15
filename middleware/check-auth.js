@@ -1,54 +1,71 @@
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 
 function checkAuth(req, res, next) {
     try {
-        if (!req.headers.authorization) {
-            return res.status(401).json({ message: "Access Denied! No token provided." });
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({ message: "Access Denied! No token provided or invalid format." });
         }
 
-        const token = req.headers.authorization.split(" ")[1]; // Extract token
-        const decodedToken = jwt.verify(token, process.env.JWT_KEY);
-        
-        // Check if the user is an admin
+        const token = authHeader.split(" ")[1]; // Extract token
+        console.log("🔍 Token received in backend:", token); // ✅ Debugging
+
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+
+        if (!decodedToken || !decodedToken.role) {
+            return res.status(403).json({ message: "Invalid token structure." });
+        }
+
         if (decodedToken.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden! Only admins can perform this action." });
+            return res.status(403).json({ message: "❌ Forbidden! Only admins can perform this action." });
         }
 
-        req.userData = decodedToken; // Store user data in request
-        next(); // Continue to the next middleware
+        req.userData = decodedToken;
+        next(); // Proceed to next middleware
 
     } catch (error) {
-        return res.status(401).json({
-            message: "Invalid or expired token provided!",
-            error: error.message
-        });
+        console.error("❌ JWT Verification Error:", error.message); // ✅ Debugging
+
+        let errorMessage = "Invalid or expired token!";
+        if (error.name === "TokenExpiredError") {
+            errorMessage = "Token expired, please refresh"; // 🔥 Important for refresh logic
+        } else if (error.name === "JsonWebTokenError") {
+            errorMessage = "Invalid token provided!";
+        }
+
+        return res.status(401).json({ message: errorMessage });
     }
 }
 
 function checkUserAuth(req, res, next) {
     try {
-        if (!req.headers.authorization) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return res.status(401).json({ message: "Access Denied! No token provided." });
         }
 
-        const token = req.headers.authorization.split(" ")[1]; // Extract token
-        const decodedToken = jwt.verify(token, process.env.JWT_KEY);
+        const token = authHeader.split(" ")[1];
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
-        
+        if (!decodedToken || !decodedToken.id) {
+            return res.status(403).json({ message: "Invalid token structure." });
+        }
 
-        req.userData = decodedToken; // Store user data in request
-        next(); // Continue to the next middleware
+        req.user = decodedToken; // ✅ Set as req.user so it's accessible in controllers
+        next();
 
     } catch (error) {
-        return res.status(401).json({
-            message: "Invalid or expired token provided!",
-            error: error.message
-        });
+        console.error("❌ JWT Verification Error:", error.message);
+
+        let errorMessage = "Invalid or expired token!";
+        if (error.name === "TokenExpiredError") {
+            errorMessage = "Token expired, please refresh";
+        } else if (error.name === "JsonWebTokenError") {
+            errorMessage = "Invalid token provided!";
+        }
+
+        return res.status(401).json({ message: errorMessage });
     }
 }
 
-
-module.exports = {
-    checkAuth,
-    checkUserAuth
-};
+module.exports = { checkAuth, checkUserAuth };

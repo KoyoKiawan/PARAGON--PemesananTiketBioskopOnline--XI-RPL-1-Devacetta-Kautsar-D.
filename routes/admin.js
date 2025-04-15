@@ -1,8 +1,10 @@
 const express = require('express');
-const adminController = require('../controllers/admin.Controller');
+const { adminAuth, dashboard } = require('../controllers/admin.Controller');
+const userController = require('../controllers/user.Controller');
+
 const router = express.Router();
 
-router.post('/sign-up', adminController.signUp);
-router.post('/login', adminController.login);
+router.post('/login', userController.login);
+router.get('/dashboard', adminAuth, dashboard);
 
 module.exports = router;
